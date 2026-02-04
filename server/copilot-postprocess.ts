@@ -39,39 +39,59 @@ export async function rewriteText(rawText: string) {
 
       const prompt = `${systemPrompt}\n\nInput:\n${rawText}\n\nInstructions: Decide the best output format (paragraph / line-broken / numbered list). If using a list, use the numbered 1) ... format. Output only the cleaned and formatted transcript in Traditional Chinese.`;
 
-      const result = await new Promise<string>((resolve, reject) => {
-        let acc = '';
+      // 添加超時機制 (25 秒，給 Zeabur 30 秒超時留下緩衝)
+      const TIMEOUT_MS = 25000;
 
-        session.on((event: any) => {
-          const t = event?.type;
-          if (t === 'assistant.message') {
-            acc = event.data?.content || acc;
-          } else if (t === 'session.idle') {
-            resolve(acc);
-          } else if (t === 'error') {
-            reject(
-              new Error((event.data && event.data.message) || 'copilot error'),
-            );
-          }
-        });
+      const result = await Promise.race([
+        new Promise<string>((resolve, reject) => {
+          let acc = '';
 
-        session.send({ prompt }).catch(reject);
-      });
+          session.on((event: any) => {
+            const t = event?.type;
+            if (t === 'assistant.message') {
+              acc = event.data?.content || acc;
+            } else if (t === 'session.idle') {
+              resolve(acc);
+            } else if (t === 'error') {
+              reject(
+                new Error(
+                  (event.data && event.data.message) || 'copilot error',
+                ),
+              );
+            }
+          });
 
+          session.send({ prompt }).catch(reject);
+        }),
+        new Promise<string>((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Copilot API timeout')),
+            TIMEOUT_MS,
+          ),
+        ),
+      ]);
+
+      console.log(
+        `[rewriteText] Success - input length: ${rawText.length}, output length: ${result.length}`,
+      );
       return result;
     } finally {
       if (session) {
         try {
-          await session.destroy();
+          // 使用 Promise.race 確保 destroy 不會卡住
+          await Promise.race([
+            session.destroy(),
+            new Promise((resolve) => setTimeout(resolve, 2000)),
+          ]);
         } catch (e) {
-          console.warn('session destroy failed', e);
+          console.warn('[rewriteText] session destroy failed:', e);
         }
       }
     }
   } catch (err: unknown) {
+    const errMsg = (err as any)?.message || String(err);
     console.warn(
-      'Copilot SDK unavailable, using local fallback:',
-      (err as any)?.message || err,
+      `[rewriteText] Copilot SDK error (${errMsg}), using local fallback for input length: ${rawText.length}`,
     );
     return fallbackProcess(rawText);
   }

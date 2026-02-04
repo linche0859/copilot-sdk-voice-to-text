@@ -14,13 +14,27 @@ app.use(express.json());
 app.use(express.static(path.resolve('./public')));
 
 app.post('/rewrite', async (req: any, res: any) => {
+  const startTime = Date.now();
   try {
     const { text } = req.body as { text?: string };
     if (!text) return res.status(400).json({ error: 'text required' });
-    const rewritten = await rewriteText(String(text));
+
+    console.log(`[POST /rewrite] Start - input length: ${text.length}`);
+
+    // 添加整體請求超時 (28 秒)
+    const rewritten = await Promise.race([
+      rewriteText(String(text)),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 28000),
+      ),
+    ]);
+
+    const duration = Date.now() - startTime;
+    console.log(`[POST /rewrite] Success - duration: ${duration}ms`);
     return res.json({ rewritten });
   } catch (error: unknown) {
-    console.error('rewrite error', error);
+    const duration = Date.now() - startTime;
+    console.error(`[POST /rewrite] Error after ${duration}ms:`, error);
     const msg = (error as any)?.message || String(error);
     return res.status(500).json({ error: msg || 'internal' });
   }
