@@ -1,6 +1,8 @@
 import { CopilotClient } from '@github/copilot-sdk';
 
-const client = new CopilotClient();
+// Connect to remote CLI if COPILOT_CLI_URL is provided, otherwise use local CLI
+const cliUrl = process.env.COPILOT_CLI_URL;
+const client = new CopilotClient(cliUrl ? { cliUrl } : undefined);
 let clientStarted = false;
 
 async function ensureClient() {

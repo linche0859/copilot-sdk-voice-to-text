@@ -1,43 +1,74 @@
 #!/bin/sh
 set -e
 
-# If a GitHub PAT is provided in `GITHUB_PAT_TOKEN`, map it to `GH_TOKEN` so
-# other tools or scripts can read it; also map `GH_TOKEN` to `COPILOT_TOKEN`
-# to support the Copilot CLI's non-interactive login helper.
+echo "🚀 Starting Copilot SDK Voice-to-Text Service..."
 
-# Map runtime `GITHUB_PAT_TOKEN` -> `GH_TOKEN` when not already set
-if [ -n "$GITHUB_PAT_TOKEN" ] && [ -z "$GH_TOKEN" ]; then
-  echo "Exporting GITHUB_PAT_TOKEN to GH_TOKEN"
+# ============================================================================
+# Environment Variable Setup
+# ============================================================================
+# Map GITHUB_PAT_TOKEN -> GH_TOKEN for GitHub authentication
+# The GH_TOKEN will be used by both Copilot CLI and the SDK
+# ============================================================================
+
+if [ -n "$GITHUB_PAT_TOKEN" ]; then
+  echo "✓ Found GITHUB_PAT_TOKEN, exporting as GH_TOKEN"
   export GH_TOKEN="$GITHUB_PAT_TOKEN"
+elif [ -n "$GH_TOKEN" ]; then
+  echo "✓ Using existing GH_TOKEN"
+else
+  echo "⚠️  Warning: No GitHub token found (GITHUB_PAT_TOKEN or GH_TOKEN)"
+  echo "   Copilot authentication may fail without a valid token."
 fi
 
-# Map `GH_TOKEN` -> `COPILOT_TOKEN` for the Copilot CLI login helper
-if [ -n "$GH_TOKEN" ] && [ -z "$COPILOT_TOKEN" ]; then
-  echo "Setting COPILOT_TOKEN from GH_TOKEN for Copilot CLI"
-  export COPILOT_TOKEN="$GH_TOKEN"
-fi
+# ============================================================================
+# Copilot CLI Configuration
+# ============================================================================
 
-# Best-effort Copilot CLI login helper.
-# If COPILOT_TOKEN is provided it will attempt a non-interactive login.
-# If COPILOT_CLI_URL is provided, it will be left in the environment for the SDK to use.
-
-if [ -n "$COPILOT_TOKEN" ]; then
-  echo "Attempting Copilot CLI login using COPILOT_TOKEN (non-interactive, best-effort)..."
-  if command -v copilot >/dev/null 2>&1; then
-    # Try a token-based login; if the CLI doesn't support the flag this will fail harmlessly
-    if copilot login --token "$COPILOT_TOKEN" 2>/dev/null; then
-      echo "Copilot CLI logged in via token."
+# Check if using remote CLI
+if [ -n "$COPILOT_CLI_URL" ]; then
+  echo "✓ Using remote Copilot CLI at: $COPILOT_CLI_URL"
+  export COPILOT_CLI_URL="$COPILOT_CLI_URL"
+  echo "   Skipping local CLI authentication (remote CLI will handle it)"
+else
+  echo "ℹ️  No COPILOT_CLI_URL set, will use local CLI if available"
+  
+  # Only attempt local CLI login if CLI binary exists and we have a token
+  if command -v copilot >/dev/null 2>&1 && [ -n "$GH_TOKEN" ]; then
+    echo "✓ Found local Copilot CLI, attempting authentication..."
+    
+    # Set GH_TOKEN for copilot CLI authentication
+    # The CLI reads GH_TOKEN automatically for authentication
+    export GH_TOKEN="$GH_TOKEN"
+    
+    # Verify CLI can access GitHub
+    if copilot --version >/dev/null 2>&1; then
+      echo "✓ Copilot CLI is ready (version: $(copilot --version 2>/dev/null || echo 'unknown'))"
     else
-      echo "Warning: non-interactive token login failed. You may need to run 'copilot login' manually."
+      echo "⚠️  Warning: Copilot CLI found but may not be properly configured"
     fi
   else
-    echo "Warning: copilot binary not found. Skipping login step."
+    if [ -z "$GH_TOKEN" ]; then
+      echo "⚠️  Warning: No GitHub token available for authentication"
+    else
+      echo "⚠️  Warning: Copilot CLI binary not found in PATH"
+    fi
+    echo "   Application will attempt to connect using environment variables only"
   fi
 fi
 
-if [ -n "$COPILOT_CLI_URL" ]; then
-  echo "Using remote Copilot CLI URL: $COPILOT_CLI_URL"
-  export COPILOT_CLI_URL="$COPILOT_CLI_URL"
-fi
+# ============================================================================
+# Display Configuration Summary
+# ============================================================================
+echo ""
+echo "Configuration Summary:"
+echo "  - PORT: ${PORT:-3000}"
+echo "  - NODE_ENV: ${NODE_ENV:-production}"
+echo "  - GH_TOKEN: $([ -n "$GH_TOKEN" ] && echo '***set***' || echo 'not set')"
+echo "  - COPILOT_CLI_URL: ${COPILOT_CLI_URL:-'not set (using local CLI)'}"
+echo ""
 
+# ============================================================================
+# Start Application
+# ============================================================================
+echo "Starting application..."
 exec "$@"
