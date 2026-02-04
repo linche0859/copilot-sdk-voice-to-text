@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Recorder — Copilot SDK Demo</title>
+    <style>
+      :root {
+        --bg: #071228;
+        --card: #071726;
+        --muted: #9aa4b2;
+        --accent: #3b82f6;
+        --accent-2: #06b6d4;
+        --glass: rgba(255, 255, 255, 0.03);
+        --radius: 12px;
+        --gap: 14px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        font-family:
+          Inter,
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          'Noto Sans TC';
+        background: linear-gradient(180deg, #071028 0%, #071226 60%);
+        color: #e6eef6;
+        -webkit-font-smoothing: antialiased;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 28px;
+      }
+      .card {
+        width: 100%;
+        max-width: 880px;
+        /* brighter card for stronger separation from page background */
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.08),
+          rgba(255, 255, 255, 0.04)
+        );
+        border-radius: var(--radius);
+        padding: 22px;
+        box-shadow: 0 18px 48px rgba(2, 6, 23, 0.75);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(6px);
+      }
+      h2 {
+        margin: 0 0 6px 0;
+        font-weight: 700;
+        font-size: 20px;
+      }
+      p.lead {
+        color: var(--muted);
+        margin-bottom: 0;
+      }
+      .controls {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        margin-top: 16px;
+      }
+      button {
+        background: var(--glass);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        color: #e6eef6;
+        padding: 10px 16px;
+        border-radius: 10px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      button.primary {
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        color: #fff;
+        border: 0;
+        box-shadow: 0 8px 24px rgba(59, 130, 246, 0.12);
+      }
+      button.ghost {
+        background: transparent;
+        color: var(--muted);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+      }
+      button[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+      }
+      .status .muted {
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .status .badge {
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.03);
+        color: #fff;
+        font-weight: 700;
+      }
+      .panels {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 18px;
+      }
+      .panel {
+        /* brighter panel background for clearer separation */
+        background: rgba(255, 255, 255, 0.06);
+        padding: 14px;
+        border-radius: 10px;
+        min-height: 120px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 6px 18px rgba(2, 6, 23, 0.12);
+      }
+      .full-panel {
+        grid-column: 1 / -1;
+      }
+      /* hidden state for full-width panels (used for rewritten output) */
+      .full-panel.hidden {
+        display: none;
+      }
+      .panel h3 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+      }
+      #interim {
+        color: var(--muted);
+        min-height: 28px;
+      }
+      #final {
+        white-space: pre-wrap;
+        max-height: 340px;
+        overflow: auto;
+      }
+      /* unify typography for interim and original transcripts */
+      #interim,
+      #final {
+        font-size: 16px;
+        line-height: 24px; /* 1.5rem */
+      }
+      .result-entry {
+        font-size: 16px;
+        line-height: 24px;
+        /* deeper, darker background to contrast with .panel */
+        background: rgba(2, 6, 23, 0.36);
+        color: #e6eef6;
+        padding: 10px 12px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        box-shadow: 0 6px 18px rgba(2, 6, 23, 0.12);
+      }
+      #rewritten {
+        white-space: pre-wrap;
+        max-height: 360px;
+        overflow: auto;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 12px;
+      }
+      /* diff highlight and copy button */
+      .diff-mark {
+        background: rgba(59, 130, 246, 0.18);
+        color: #eaf6ff;
+        padding: 2px 4px;
+        border-radius: 4px;
+      }
+      .copy-btn {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        color: var(--muted);
+        padding: 6px 8px;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .copy-icon {
+        width: 24px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent; /* 無背景 */
+        color: #60a5fa; /* 更亮的藍色 */
+        border-radius: 6px;
+        border: 0;
+        cursor: pointer;
+        float: right;
+        margin-left: 8px;
+        padding: 0;
+      }
+      .copy-icon svg {
+        width: 16px;
+        height: 16px;
+        display: block;
+        fill: currentColor;
+      }
+      /* recording indicator shown inside the Stop button
+         - hidden by default so it doesn't occupy layout space
+         - becomes inline-block and blinks when `.recording` is present */
+      .rec-stop-indicator {
+        display: none;
+        width: 10px;
+        height: 10px;
+        background: #ff4d4f;
+        border-radius: 50%;
+        margin-right: 8px;
+        box-shadow: 0 0 10px rgba(255, 77, 79, 0.35);
+      }
+      /* ensure the stop button aligns indicator and text horizontally */
+      #stopBtn {
+        display: inline-flex;
+        align-items: center;
+      }
+      button.recording .rec-stop-indicator {
+        display: inline-block;
+        animation: rec-blink 2s infinite;
+      }
+      /* make the stop button border glow/blink while recording */
+      button.recording {
+        animation: rec-border-blink 2s infinite;
+        border-color: rgba(255, 77, 79, 0.9);
+        box-shadow: 0 0 18px rgba(255, 77, 79, 0.28);
+      }
+      @keyframes rec-border-blink {
+        0% {
+          border-color: rgba(255, 77, 79, 0.9);
+          box-shadow: 0 0 18px rgba(255, 77, 79, 0.36);
+        }
+        50% {
+          border-color: rgba(255, 77, 79, 0.18);
+          box-shadow: 0 0 6px rgba(255, 77, 79, 0.08);
+        }
+        100% {
+          border-color: rgba(255, 77, 79, 0.9);
+          box-shadow: 0 0 18px rgba(255, 77, 79, 0.36);
+        }
+      }
+      @keyframes rec-blink {
+        0% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.15;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+      .result-entry .original-text {
+        opacity: 0.9;
+      }
+      /* rewritten output typography */
+      .rewritten-text {
+        font-size: 16px;
+        line-height: 24px; /* 1.5rem */
+      }
+      @media (max-width: 720px) {
+        .panels {
+          grid-template-columns: 1fr;
+        }
+        .controls {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <header>
+        <h2>語音轉文字（Web Speech API）</h2>
+        <p class="lead">
+          請使用 Chrome
+          並允許麥克風存取。系統會將整段錄音送到後端做流暢化重寫（非即時）。
+        </p>
+      </header>
+
+      <div class="controls">
+        <div>
+          <button id="startBtn" class="primary">開始</button>
+          <button id="stopBtn" class="ghost" disabled>
+            <span class="rec-stop-indicator" aria-hidden="true"></span>停止
+          </button>
+        </div>
+        <div class="status">
+          <div class="muted">狀態</div>
+          <div class="badge" id="status">等待語音輸入</div>
+        </div>
+      </div>
+
+      <div class="panels">
+        <div class="panel">
+          <h3>即時辨識（interim）</h3>
+          <div id="interim"></div>
+        </div>
+        <div class="panel">
+          <h3>原稿紀錄</h3>
+          <div id="final"></div>
+        </div>
+        <div class="panel full-panel hidden" id="rewrittenPanel">
+          <h3>重寫後輸出</h3>
+          <div id="rewritten"></div>
+        </div>
+      </div>
+
+      <footer>
+        操作說明：點選「開始」開始錄音，錄完後點選「停止」送出整段處理。
+      </footer>
+    </div>
+
+    <script type="module" src="recorder.js"></script>
+  </body>
+</html>
