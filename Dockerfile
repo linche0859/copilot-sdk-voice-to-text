@@ -34,5 +34,8 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 EXPOSE 3000
 ENV PORT=3000
 
+# Allow runtime mapping of a provided GitHub PAT to `GH_TOKEN` via the entrypoint
+ENV GH_TOKEN=""
+
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["npm", "start"]

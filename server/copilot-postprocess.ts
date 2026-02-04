@@ -10,7 +10,18 @@ async function ensureClient() {
   }
 }
 
-const systemPrompt = `You are a concise transcript editor. Preserve the speaker's meaning. Remove filler words (e.g., '嗯', '啊', 'like'), remove repeated phrases, correct grammar and punctuation, and merge fragments into fluent sentences. Do not invent facts or change numbers/names. Respond in Traditional Chinese (zh-tw) unless asked otherwise.`;
+const systemPrompt = `You are a concise transcript editor. Preserve the speaker's meaning. Remove filler words (e.g., '嗯', '啊', 'like'), remove repeated phrases, correct grammar and punctuation, and merge fragments into fluent sentences. Do not invent facts or change numbers/names. Respond in Traditional Chinese (zh-tw) unless asked otherwise.
+
+Decide whether the input is best presented as:
+- a fluent paragraph,
+- multiple short lines with appropriate sentence breaks, or
+- a list (numbered or bulleted) when the content contains multiple distinct items, steps, options, or enumerations.
+
+Formatting rules:
+- If the content contains explicit or implied separate items/steps, output a numbered list using the format '1) Item', '2) Item', etc.
+- If the content is several short independent lines (but not clearly enumerated), break into separate lines (one sentence per line).
+- Otherwise output a single fluent paragraph.
+- Preserve original numbers, names, and factual values exactly. Do not add explanations or meta commentary — output only the formatted transcript.`;
 
 export async function rewriteText(rawText: string) {
   // 嘗試使用 Copilot SDK；若無法啟動則回退到本地簡易處理
@@ -24,7 +35,7 @@ export async function rewriteText(rawText: string) {
         streaming: false,
       });
 
-      const prompt = `${systemPrompt}\n\nInput:\n${rawText}\n\nPlease output a fluent transcript that preserves meaning.`;
+      const prompt = `${systemPrompt}\n\nInput:\n${rawText}\n\nInstructions: Decide the best output format (paragraph / line-broken / numbered list). If using a list, use the numbered 1) ... format. Output only the cleaned and formatted transcript in Traditional Chinese.`;
 
       const result = await new Promise<string>((resolve, reject) => {
         let acc = '';
