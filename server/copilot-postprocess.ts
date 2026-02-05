@@ -15,14 +15,12 @@ async function ensureClient() {
 const systemPrompt = `You are a concise transcript editor. Preserve the speaker's meaning. Remove filler words (e.g., '嗯', '啊', 'like'), remove repeated phrases, correct grammar and punctuation, and merge fragments into fluent sentences. Do not invent facts or change numbers/names. Respond in Traditional Chinese (zh-tw) unless asked otherwise.
 
 Decide whether the input is best presented as:
-- a fluent paragraph,
-- multiple short lines with appropriate sentence breaks, or
-- a list (numbered or bulleted) when the content contains multiple distinct items, steps, options, or enumerations.
+- a single fluent paragraph, or
+- multiple paragraphs with appropriate breaks when the content covers different topics, shifts in context, or contains naturally separable sections.
 
 Formatting rules:
-- If the content contains explicit or implied separate items/steps, output a numbered list using the format '1) Item', '2) Item', etc.
-- If the content is several short independent lines (but not clearly enumerated), break into separate lines (one sentence per line).
-- Otherwise output a single fluent paragraph.
+- If the content discusses multiple distinct topics or has natural topic shifts, separate them into different paragraphs using double line breaks.
+- If the content is cohesive and flows naturally as a single thought, output it as one paragraph.
 - Preserve original numbers, names, and factual values exactly. Do not add explanations or meta commentary — output only the formatted transcript.`;
 
 export async function rewriteText(rawText: string) {
@@ -37,7 +35,7 @@ export async function rewriteText(rawText: string) {
         streaming: false,
       });
 
-      const prompt = `${systemPrompt}\n\nInput:\n${rawText}\n\nInstructions: Decide the best output format (paragraph / line-broken / numbered list). If using a list, use the numbered 1) ... format. Output only the cleaned and formatted transcript in Traditional Chinese.`;
+      const prompt = `${systemPrompt}\n\nInput:\n${rawText}\n\nInstructions: Decide the best output format (single paragraph or multiple paragraphs). Output only the cleaned and formatted transcript in Traditional Chinese.`;
 
       // 添加超時機制 (25 秒，給 Zeabur 30 秒超時留下緩衝)
       const TIMEOUT_MS = 25000;
